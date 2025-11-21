@@ -1,3 +1,7 @@
 requests
 supabase
 python-dotenv
+pandas
+aiohttp
+tqdm
+
