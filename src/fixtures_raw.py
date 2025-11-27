@@ -76,7 +76,7 @@ def main():
     # Select common columns
     cols = [
         "match_id", "team_id", "opponent_team_id", "team_score", "opponent_score", 
-        "kickoff_time", "team_difficulty", "gameweek", "is_home"
+        "kickoff_time", "team_difficulty", "gameweek", "is_home", "finished"
     ]
     
     fact_fixtures_long = pd.concat([home_df[cols], away_df[cols]], ignore_index=True)
@@ -103,7 +103,7 @@ def main():
     final_cols = [
         "match_id", "team_id", "opponent_team_id", "opponent_name", 
         "team_score", "opponent_score", "kickoff_date", "kickoff_time", 
-        "gameweek", "team_difficulty", "is_home"
+        "gameweek", "team_difficulty", "is_home", "finished"
     ]
     
     result_df = merged_df[final_cols].copy()
