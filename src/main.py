@@ -1,6 +1,5 @@
 from src.fpl_client import get_bootstrap_static, get_fixtures
 from src.supabase_client import get_supabase_client
-print("hej")
 def filter_data(data_list, allowed_keys):
     """Filters a list of dictionaries to keep only allowed keys."""
     filtered_list = []
