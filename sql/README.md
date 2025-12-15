@@ -1,59 +1,80 @@
-# SQL Functions for FPL Pipeline
+# DBO Schema Setup
 
-## Truncate Raw Tables Functions
+This directory contains SQL scripts to set up the `dbo` (data warehouse) schema with dimension and fact tables, plus transformation functions.
 
-The `truncate_raw_tables.sql` file contains PostgreSQL functions to truncate raw schema tables.
+## Setup Instructions
 
-### Setup Instructions
+Run these scripts **in order** in your Supabase SQL Editor:
 
-1. **Run the SQL script in Supabase**:
-   - Open your Supabase project dashboard
-   - Go to the SQL Editor
-   - Copy and paste the contents of `truncate_raw_tables.sql`
-   - Execute the script
+### 1. Create DBO Schema and Tables
+```bash
+File: create_dbo_schema.sql
+```
+This creates:
+- `dbo.dim_players` - Player dimension table
+- `dbo.dim_teams` - Team dimension table  
+- `dbo.dim_fixtures` - Fixture dimension table
+- `dbo.fact_stats` - Player statistics fact table
 
-2. **Grant permissions** (if needed):
-   - Uncomment the GRANT statements at the end of the SQL file
-   - Adjust the role (`authenticated`, `anon`, etc.) based on your security requirements
+### 2. Create Upsert Functions
+```bash
+File: create_upsert_functions.sql
+```
+This creates transformation functions:
+- `dbo.upsert_dim_players()` - Transforms `raw.players_raw` → `dbo.dim_players`
+- `dbo.upsert_dim_teams()` - Transforms `raw.teams_raw` → `dbo.dim_teams`
+- `dbo.upsert_dim_fixtures()` - Transforms `raw.fixtures_raw` → `dbo.dim_fixtures`
+- `dbo.upsert_fact_stats()` - Transforms `raw.stats_season_raw` → `dbo.fact_stats`
 
-### Available Functions
+## How to Run in Supabase
 
-#### Individual Table Truncation
-- `raw.truncate_players_raw()` - Truncates only the players_raw table
-- `raw.truncate_teams_raw()` - Truncates only the teams_raw table
-- `raw.truncate_stats_season_raw()` - Truncates only the stats_season_raw table
-- `raw.truncate_fixtures_raw()` - Truncates only the fixtures_raw table
+1. Open your Supabase project dashboard
+2. Navigate to **SQL Editor**
+3. Create a new query
+4. Copy and paste the contents of `create_dbo_schema.sql`
+5. Click **Run**
+6. Create another new query
+7. Copy and paste the contents of `create_upsert_functions.sql`
+8. Click **Run**
 
-#### Master Truncation Function
-- `raw.truncate_all_raw_tables()` - Truncates all raw tables at once
+## Data Pipeline Flow
 
-### Usage from Python
+```
+FPL API → Python Scripts → raw.* tables → Upsert Functions → dbo.* tables → Frontend
+```
 
-The pipeline automatically calls `truncate_all_raw_tables()` at the start:
+1. **Extract**: Python scripts fetch data from FPL API
+2. **Load to Raw**: Data is loaded into `raw.*` tables
+3. **Transform**: Upsert functions transform and load into `dbo.*` tables
+4. **Consume**: Frontend queries `dbo.*` tables for analytics
+
+## Usage from Python
+
+After running the SQL scripts, you can call the functions from Python:
 
 ```python
-# This is already implemented in pipeline.py
-supabase.rpc('truncate_all_raw_tables').execute()
+from src.supabase_client import get_supabase_client
+
+supabase = get_supabase_client()
+
+# Transform players
+supabase.schema('dbo').rpc('upsert_dim_players', {}).execute()
+
+# Transform teams
+supabase.schema('dbo').rpc('upsert_dim_teams', {}).execute()
+
+# Transform fixtures
+supabase.schema('dbo').rpc('upsert_dim_fixtures', {}).execute()
+
+# Transform stats
+supabase.schema('dbo').rpc('upsert_fact_stats', {}).execute()
 ```
 
-### Manual Usage in SQL
+## Permissions
 
-You can also call these functions directly in the Supabase SQL Editor:
+All functions use `SECURITY DEFINER` which means they run with the permissions of the function owner (typically the database owner), allowing the service role to execute them even if it doesn't have direct table access.
 
-```sql
--- Truncate all raw tables
-SELECT raw.truncate_all_raw_tables();
-
--- Or truncate individual tables
-SELECT raw.truncate_players_raw();
-SELECT raw.truncate_teams_raw();
-SELECT raw.truncate_stats_season_raw();
-SELECT raw.truncate_fixtures_raw();
-```
-
-### Benefits
-
-- **Performance**: `TRUNCATE` is faster than `DELETE` for clearing entire tables
-- **Cleaner**: Database-level operations are more efficient than application-level deletes
-- **Reusable**: Functions can be called from Python, SQL, or other tools
-- **Atomic**: Each function executes as a single transaction
+The `service_role` key is granted:
+- `USAGE` on the `dbo` schema
+- `ALL` privileges on all tables in `dbo` schema
+- `EXECUTE` on all upsert functions
